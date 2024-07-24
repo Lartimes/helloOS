@@ -13,6 +13,7 @@
       GLOBAL _io_out8, _io_out16, _io_out32
       GLOBAL _io_load_eflags, _io_store_eflags
 
+
 ;以下是实际的函数
 [SECTION .text] ; 目标文件中写了这些之后再写程序
 
