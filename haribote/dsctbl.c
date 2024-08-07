@@ -2,7 +2,9 @@
 
 
 
-
+/**
+ * 初始化gdt idt
+ */
 void init_gdtidt(void)
 {
     struct SEGMENT_DESCRIPTOR *gdt = (struct SEGMENT_DESCRIPTOR *) ADR_GDT;

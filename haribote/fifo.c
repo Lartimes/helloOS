@@ -2,6 +2,13 @@
 // Created by Lartimes on 2024/8/6.
 //
 #include "bootpack.h"
+
+/**
+ * 初始化FIFO
+ * @param fifo
+ * @param size
+ * @param buf
+ */
 void fifo8_init(struct FIFO8 *fifo, int size, unsigned char *buf) {
 //    初始化FIFO 缓冲区
     fifo->q = 0;
@@ -13,6 +20,12 @@ void fifo8_init(struct FIFO8 *fifo, int size, unsigned char *buf) {
     return;
 }
 
+/**
+ * FIFO 缓存写入data
+ * @param fifo
+ * @param data
+ * @return
+ */
 int fifo8_put(struct FIFO8 *fifo, unsigned char data) {
     if (fifo->free == 0) {
         fifo->flags |= FLAGS_OVERRUN;
@@ -27,6 +40,11 @@ int fifo8_put(struct FIFO8 *fifo, unsigned char data) {
     return 0;
 }
 
+/**
+ * fifo缓存读取data
+ * @param fifo
+ * @return
+ */
 int fifo8_get(struct FIFO8 *fifo) {
     if (fifo->free == fifo->size) {
         return -1;
@@ -39,6 +57,11 @@ int fifo8_get(struct FIFO8 *fifo) {
     return data;
 }
 
+/**
+ * fifo是否free
+ * @param fifo
+ * @return
+ */
 int fifo8_status(struct FIFO8 *fifo)
 /* 报告一下到底积攒了多少数据 */
 {
