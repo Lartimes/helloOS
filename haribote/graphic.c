@@ -75,7 +75,7 @@ void putblock8_8(char *vram, int vxsize, int pxsize, int pysize, int px0, int py
  * @param scrnx
  * @param scrny
  */
-void init_screen(char *vram, short scrnx, short scrny) {
+void init_screen8(char *vram, short scrnx, short scrny) {
     int xsize, ysize;
     xsize = (int) scrnx;
     ysize = (int) scrny;
@@ -167,8 +167,6 @@ void set_palette(int start, int end, unsigned char *rgb) {
 }
 
 void boxfill8(unsigned char *vram, int xsize, unsigned char c, int x0, int y0, int x1, int y1) {
-//     boxfill8(p, LENGTH, COL8_FF0000, 20, 20, 120, 120);
-//    *p = 0xa0000 + x * 320 + y ;
     int x, y;
     for (y = y0; y <= y1; y++) {
         for (x = x0; x <= x1; x++)

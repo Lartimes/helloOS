@@ -34,18 +34,18 @@ struct BOOTINFO {
 //fifo.c
 #define FLAGS_OVERRUN 0x0001
 
-struct FIFO8 {
-    unsigned char *buf;
+struct FIFO32 {
+    int *buf;
     int p, q, size, free, flags;
 };
 
-int fifo8_get(struct FIFO8 *fifo);
+void fifo32_init(struct FIFO32 *fifo, int size, int *buf);
 
-int fifo8_status(struct FIFO8 *fifo);
+int fifo32_get(struct FIFO32 *fifo);
 
-int fifo8_put(struct FIFO8 *fifo, unsigned char data);
+int fifo32_status(struct FIFO32 *fifo);
 
-void fifo8_init(struct FIFO8 *fifo, int size, unsigned char *buf);
+int fifo32_put(struct FIFO32 *fifo, int data);
 
 void io_cli(void);
 
@@ -60,6 +60,8 @@ int io_in8(int port);
 int io_load_eflags(void);
 
 void io_store_eflags(int eflags);
+
+void asm_inthandler20(void);
 
 void asm_inthandler21(void);
 
@@ -123,7 +125,7 @@ void set_palette(int start, int end, unsigned char *rgb);
 
 void boxfill8(unsigned char *vram, int xsize, unsigned char c, int x0, int y0, int x1, int y1);
 
-void init_screen(char *vram, short scrnx, short scrny);
+void init_screen8(char *vram, short scrnx, short scrny);
 
 
 /* int.c */
@@ -163,8 +165,10 @@ void inthandler2c(int *esp);
 #define KBC_MODE                0x47
 #define KEYCMD_SENDTO_MOUSE        0xd4
 #define MOUSECMD_ENABLE            0xf4
+
 //keyboard.c
-void init_keyboard(void);
+void init_keyboard(struct FIFO32 *fifo, int data0);
+
 void wait_KBC_sendready();
 
 //mouse
@@ -174,10 +178,113 @@ struct MOUSE_DEC {
 };
 
 
+void enable_mouse(struct FIFO32 *fifo, int data0, struct MOUSE_DEC *mdec);
 
-void enable_mouse(struct MOUSE_DEC *mouseDec);
+int mouse_decode(struct MOUSE_DEC *mdec, unsigned  char  data);
 
-int mouse_decode(struct MOUSE_DEC *mdec, int data);
+//memory
+#define EFLAGS_AC_BIT 0x00040000
+#define CR0_CACHE_DISABLE 0x60000000
+
+void store_cr0(int cr0);
+
+int load_cr0(void);
+
+#define MEMMAN_ADDR 0x003c0000
+#define MEMMAN_FREES 4090 /* 大约是32KB*/
+struct FREEINFO { /* 可用信息 */
+    unsigned int addr, size;
+};
+struct MEMMAN { /* 内存管理 */
+    int frees, maxfrees, lostsize, losts;
+    struct FREEINFO free[MEMMAN_FREES];
+};
+
+unsigned int memman_total(struct MEMMAN *man);
+
+void memman_init(struct MEMMAN *man);
+
+unsigned int memtest_sub(unsigned int start, unsigned int end);
+
+unsigned int memtest(unsigned int start, unsigned int end);
+
+int memman_free(struct MEMMAN *man, unsigned int addr, unsigned int size);
+
+int memman_free_4k(struct MEMMAN *man, unsigned int addr, unsigned int size);
+
+unsigned int memman_alloc_4k(struct MEMMAN *man, unsigned int size);
+
+
+
+//sheet.c
+#define MAX_SHEETS 256
+#define SHEET_USE 1
+struct SHEET {
+    unsigned char *buf;
+    int bxsize, bysize, vx0, vy0, col_inv, height, flags;
+    struct SHTCTL *ctl;
+};
+struct SHTCTL {
+    unsigned char *vram, *map;
+    int xsize, ysize, top;
+    struct SHEET *sheets[MAX_SHEETS];
+    struct SHEET sheets0[MAX_SHEETS];
+};
+
+struct SHTCTL *shtctl_init(struct MEMMAN *memman, unsigned char *vram, int xsize, int ysize);
+
+struct SHEET *sheet_alloc(struct SHTCTL *ctl);
+
+void sheet_free(struct SHEET *sht);
+
+void sheet_setbuf(struct SHEET *sht, unsigned char *buf, int xsize, int ysize, int col_inv);
+
+void sheet_refresh(struct SHEET *sht, int bx0, int by0, int bx1, int by1);
+
+void sheet_updown(struct SHEET *sht, int height);
+
+void sheet_slide(struct SHEET *sht, int vx0, int vy0);
+
+void sheet_refreshsub(struct SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1, int h0, int h1);
+
+void sheet_refreshmap(struct SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1, int h0);
+
+//timer.c
+#define MAX_TIMER 500
+#define PIT_CTRL 0x0043
+#define PIT_CNT0 0x0040
+#define TIMER_FLAGS_ALLOC 1 /* 已配置状态 */
+#define TIMER_FLAGS_USING 2 /* 定时器运行中 */
+
+
+struct TIMER {
+    struct TIMER *next;
+    unsigned int timeout, flags;
+    struct FIFO32 *fifo;
+    int data;
+};
+struct TIMERCTL {
+    unsigned int count, next;
+    struct TIMER *t0;
+    struct TIMER timers0[MAX_TIMER];
+};
+
+extern struct TIMERCTL timerctl;
+
+struct TIMER *timer_alloc(void);
+
+void init_pit(void);
+
+void inthandler20(int *esp);
+
+void timer_settime(struct TIMER *timer, unsigned int timeout);
+
+void timer_init(struct TIMER *timer, struct FIFO32 *fifo, int data);
+
+void timer_free(struct TIMER *timer);
+
+void putfonts8_asc_sht(struct SHEET *sht, int x, int y, int c, int b, char *s, int l);
+
 
 
 

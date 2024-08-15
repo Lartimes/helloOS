@@ -1,5 +1,13 @@
 ; haribote-os boot asm
 ; TAB=4
+[INSTRSET "i486p"]				; 说明使用486指令
+; 显示模式
+;	0x100 :  640 x  400 x 8bit 彩色
+;	0x101 :  640 x  480 x 8bit 彩色
+;	0x103 :  800 x  600 x 8bit 彩色
+;	0x105 : 1024 x  768 x 8bit 彩色
+;	0x107 : 1280 x 1024 x 8bit 彩色
+VBEMODE	EQU		0x105			; 1024 x  768 x 8bit 彩色
 
 BOTPAK	EQU		0x00280000		; 加载bootpack
 DSKCAC	EQU		0x00100000		; 磁盘缓存的位置
@@ -14,22 +22,68 @@ SCRNY	EQU		0x0ff6			; 分辨率Y
 VRAM	EQU		0x0ff8			; 图像缓冲区的起始地址
 
 		ORG		0xc200			;  这个的程序要被装载的内存地址
+; 确认VBE是否存在
 
-; 画面モードを設定
+		MOV		AX,0x9000
+		MOV		ES,AX
+		MOV		DI,0
+		MOV		AX,0x4f00
+		INT		0x10
+		CMP		AX,0x004f
+		JNE		scrn320
 
-		MOV		AL,0x13			; VGA显卡，320x200x8bit
-		MOV		AH,0x00
+; 检查VBE的版本
+
+		MOV		AX,[ES:DI+4]
+		CMP		AX,0x0200
+		JB		scrn320			; if (AX < 0x0200) goto scrn320
+
+; 取得画面模式信息
+
+		MOV		CX,VBEMODE
+		MOV		AX,0x4f01
+		INT		0x10
+		CMP		AX,0x004f
+		JNE		scrn320
+
+; 画面模式信息的确认
+		CMP		BYTE [ES:DI+0x19],8		;颜色数必须为8
+		JNE		scrn320
+		CMP		BYTE [ES:DI+0x1b],4		;颜色的指定方法必须为4(4是调色板模式)
+		JNE		scrn320
+		MOV		AX,[ES:DI+0x00]				;模式属性bit7不是1就不能加上0x4000
+		AND		AX,0x0080
+		JZ		scrn320					; 模式属性的bit7是0，所以放弃
+
+;	画面设置
+
+		MOV		BX,VBEMODE+0x4000
+		MOV		AX,0x4f02
 		INT		0x10
 		MOV		BYTE [VMODE],8	; 屏幕的模式（参考C语言的引用）
+		MOV		AX,[ES:DI+0x12]
+		MOV		[SCRNX],AX
+		MOV		AX,[ES:DI+0x14]
+		MOV		[SCRNY],AX
+		MOV		EAX,[ES:DI+0x28] ;VRAM的地址
+		MOV		[VRAM],EAX
+		JMP		keystatus
+
+scrn320:
+		MOV		AL,0x13						; VGA图、320x200x8bit彩色
+		MOV		AH,0x00
+		INT		0x10
+		MOV		BYTE [VMODE],8		; 记下画面模式（参考C语言）
 		MOV		WORD [SCRNX],320
 		MOV		WORD [SCRNY],200
 		MOV		DWORD [VRAM],0x000a0000
 
 ; 通过BIOS获取指示灯状态
-
+keystatus:
 		MOV		AH,0x02
 		INT		0x16 			; keyboard BIOS
 		MOV		[LEDS],AL
+
 
 ; 防止PIC接受所有中断
 ;	AT兼容机的规范、PIC初始化
